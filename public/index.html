@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Descarga vídeos o audio para uso personal.">
+  <title>MediaGrab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light dark; --bg: #f5f3fb; --card: #fff; --text: #211d2b; --muted: #706b7c; --line: #ded9eb; --accent: #5b3df5; --accent-soft: #ece8ff; --error: #b32638; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #17151e; --card: #24212e; --text: #f5f1ff; --muted: #b9b2c7; --line: #403a4d; --accent-soft: #302761; --error: #ff8d9c; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1rem; background: var(--bg); color: var(--text); font-family: 'Bricolage Grotesque', system-ui, sans-serif; }
+    main { width: min(100%, 30rem); }
+    .card { padding: clamp(1.4rem, 5vw, 2.5rem); border: 1px solid var(--line); border-radius: 1.4rem; background: var(--card); box-shadow: 0 1rem 3rem #31245d12; }
+    h1 { margin: 0; font-size: clamp(2rem, 8vw, 3rem); letter-spacing: -.05em; }
+    .subtitle { margin: .4rem 0 2rem; color: var(--muted); font-size: 1.05rem; }
+    label { display: block; margin-bottom: .5rem; font-weight: 600; }
+    .url-row { display: flex; gap: .55rem; }
+    input[type=url] { min-width: 0; flex: 1; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: transparent; color: var(--text); font: inherit; }
+    button { border: 0; border-radius: .75rem; padding: .85rem 1rem; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    button.secondary { background: var(--accent-soft); color: var(--accent); }
+    button:disabled { cursor: wait; opacity: .6; }
+    button:focus-visible, input:focus-visible { outline: 3px solid #9d8dff; outline-offset: 2px; }
+    fieldset { margin: 1.5rem 0; padding: 0; border: 0; }
+    legend { margin-bottom: .65rem; font-weight: 600; }
+    .formats { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+    .format { position: relative; }
+    .format input { position: absolute; opacity: 0; }
+    .format label { display: block; margin: 0; padding: 1rem; border: 1px solid var(--line); border-radius: .8rem; cursor: pointer; }
+    .format input:checked + label { border-color: var(--accent); background: var(--accent-soft); }
+    .format input:focus-visible + label { outline: 3px solid #9d8dff; outline-offset: 2px; }
+    .format strong, .format span { display: block; }
+    .format span { margin-top: .2rem; color: var(--muted); font-size: .9rem; font-weight: 400; }
+    .submit { width: 100%; font-size: 1.05rem; }
+    .status { min-height: 1.5rem; margin: 1rem 0 0; color: var(--muted); }
+    .status.error { color: var(--error); }
+    .spinner { display: inline-block; width: 1rem; height: 1rem; margin-right: .4rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -.15rem; }
+    @media (prefers-reduced-motion: no-preference) { .spinner { animation: spin .8s linear infinite; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main><section class="card" aria-labelledby="title">
+    <h1 id="title">MediaGrab</h1>
+    <p class="subtitle">Pega un enlace, elige el formato y descarga.</p>
+    <form id="download-form">
+      <label for="url">Enlace del video</label>
+      <div class="url-row"><input id="url" name="url" type="url" placeholder="https://..." required autocomplete="url"><button class="secondary" id="paste" type="button">Pegar</button></div>
+      <fieldset><legend>Formato</legend><div class="formats">
+        <div class="format"><input id="mp4" name="format" type="radio" value="mp4" checked><label for="mp4"><strong>MP4</strong><span>Video</span></label></div>
+        <div class="format"><input id="mp3" name="format" type="radio" value="mp3"><label for="mp3"><strong>MP3</strong><span>Solo audio</span></label></div>
+      </div></fieldset>
+      <button class="submit" id="submit" type="submit">Descargar</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+  </section></main>
+  <script src="/config.js"></script>
+  <script>
+    const apiBaseUrl = (window.MEDIA_GRAB_API_URL || '').replace(/\/$/, '')
+    const form = document.querySelector('#download-form')
+    const urlInput = document.querySelector('#url')
+    const pasteButton = document.querySelector('#paste')
+    const submitButton = document.querySelector('#submit')
+    const status = document.querySelector('#status')
+    function showStatus(message, isError, loading) {
+      status.textContent = ''
+      status.classList.toggle('error', isError)
+      if (!message) return
+      if (loading) { const spinner = document.createElement('span'); spinner.className = 'spinner'; spinner.setAttribute('aria-hidden', 'true'); status.append(spinner) }
+      status.append(document.createTextNode(message))
+    }
+    pasteButton.addEventListener('click', async () => {
+      try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus() } catch { showStatus('No se pudo leer el portapapeles. Pega el enlace manualmente.', true) }
+    })
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault(); submitButton.disabled = true; pasteButton.disabled = true
+      showStatus('Procesando… videos largos pueden tardar unos minutos', false, true)
+      const format = document.querySelector('input[name="format"]:checked').value
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/download`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urlInput.value.trim(), format }) })
+        if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'No se pudo completar la descarga.') }
+        const blob = await response.blob(); const disposition = response.headers.get('Content-Disposition') || ''
+        const utf8Match = disposition.match(/filename\*=(?:UTF-8'')?([^;]+)/i); const plainMatch = disposition.match(/filename="?([^";]+)"?/i)
+        const filename = decodeURIComponent((utf8Match && utf8Match[1]) || (plainMatch && plainMatch[1]) || `mediagrab.${format}`)
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(link.href)
+        showStatus(`Listo: ${filename}`, false); urlInput.value = ''
+      } catch (error) { showStatus(error.message, true) } finally { submitButton.disabled = false; pasteButton.disabled = false }
+    })
+  </script>
+</body>
+</html>
