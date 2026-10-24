@@ -59,7 +59,9 @@
   </section></main>
   <script src="/config.js"></script>
   <script>
-    const apiBaseUrl = (window.MEDIA_GRAB_API_URL || '').replace(/\/$/, '')
+    const configuredApiBaseUrl = (window.MEDIA_GRAB_API_URL || '').replace(/\/$/, '')
+    const localHosts = new Set(['localhost', '127.0.0.1', '::1'])
+    const apiBaseUrl = localHosts.has(window.location.hostname) ? '' : configuredApiBaseUrl
     const form = document.querySelector('#download-form')
     const urlInput = document.querySelector('#url')
     const pasteButton = document.querySelector('#paste')
