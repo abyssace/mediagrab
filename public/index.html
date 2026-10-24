@@ -61,7 +61,10 @@
   <script>
     const configuredApiBaseUrl = (window.MEDIA_GRAB_API_URL || '').replace(/\/$/, '')
     const localHosts = new Set(['localhost', '127.0.0.1', '::1'])
-    const apiBaseUrl = localHosts.has(window.location.hostname) ? '' : configuredApiBaseUrl
+    const hostname = window.location.hostname
+    const privateNetworkHost = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname)
+    const isLocalServer = window.location.protocol === 'http:' && (localHosts.has(hostname) || privateNetworkHost)
+    const apiBaseUrl = isLocalServer ? '' : configuredApiBaseUrl
     const form = document.querySelector('#download-form')
     const urlInput = document.querySelector('#url')
     const pasteButton = document.querySelector('#paste')
