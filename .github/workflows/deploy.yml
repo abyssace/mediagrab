@@ -7,7 +7,7 @@ on:
     paths:
       - "public/**"
       - "netlify.toml"
-      - ".github/workflows/deploy-netlify.yml"
+      - ".github/workflows/deploy.yml"
 
 jobs:
   deploy:
