@@ -65,6 +65,7 @@
     const pasteButton = document.querySelector('#paste')
     const submitButton = document.querySelector('#submit')
     const status = document.querySelector('#status')
+    let accessToken = sessionStorage.getItem('mediagrab-access-token') || ''
     function showStatus(message, isError, loading) {
       status.textContent = ''
       status.classList.toggle('error', isError)
@@ -75,13 +76,33 @@
     pasteButton.addEventListener('click', async () => {
       try { urlInput.value = await navigator.clipboard.readText(); urlInput.focus() } catch { showStatus('No se pudo leer el portapapeles. Pega el enlace manualmente.', true) }
     })
+
+    async function requestDownload(url, format, canRetry) {
+      const headers = { 'Content-Type': 'application/json' }
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+      const response = await fetch(`${apiBaseUrl}/api/download`, { method: 'POST', headers, body: JSON.stringify({ url, format }) })
+      if (response.status === 401 && canRetry) {
+        const token = window.prompt('Introduce el código de acceso de MediaGrab:')
+        if (!token || !token.trim()) throw new Error('Se necesita un código de acceso para descargar.')
+        accessToken = token.trim()
+        sessionStorage.setItem('mediagrab-access-token', accessToken)
+        return requestDownload(url, format, false)
+      }
+      if (response.status === 401) {
+        sessionStorage.removeItem('mediagrab-access-token')
+        accessToken = ''
+        throw new Error('El código de acceso no es válido.')
+      }
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'No se pudo completar la descarga.') }
+      return response
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault(); submitButton.disabled = true; pasteButton.disabled = true
       showStatus('Procesando… videos largos pueden tardar unos minutos', false, true)
       const format = document.querySelector('input[name="format"]:checked').value
       try {
-        const response = await fetch(`${apiBaseUrl}/api/download`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urlInput.value.trim(), format }) })
-        if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'No se pudo completar la descarga.') }
+        const response = await requestDownload(urlInput.value.trim(), format, true)
         const blob = await response.blob(); const disposition = response.headers.get('Content-Disposition') || ''
         const utf8Match = disposition.match(/filename\*=(?:UTF-8'')?([^;]+)/i); const plainMatch = disposition.match(/filename="?([^";]+)"?/i)
         const filename = decodeURIComponent((utf8Match && utf8Match[1]) || (plainMatch && plainMatch[1]) || `mediagrab.${format}`)

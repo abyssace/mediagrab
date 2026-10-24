@@ -49,9 +49,10 @@ La aplicación se separa en dos servicios:
    ```text
    YTDLP_PATH=/usr/local/bin/yt-dlp
    FRONTEND_ORIGIN=https://TU-SITIO.netlify.app
+   MEDIA_GRAB_TOKEN=un-token-largo-y-aleatorio
    ```
 
-   Railway proporciona `PORT` automáticamente; no necesitas fijarlo.
+   Railway proporciona `PORT` automáticamente; no necesitas fijarlo. `MEDIA_GRAB_TOKEN` es obligatorio para descargar.
 5. Despliega y copia la URL pública que Railway asigne, por ejemplo:
    `https://mediagrab-production.up.railway.app`.
 
@@ -68,6 +69,23 @@ La aplicación se separa en dos servicios:
 4. Copia el dominio final de Netlify y actualiza `FRONTEND_ORIGIN` en Railway con ese dominio exacto.
 
 Si cambias el dominio de Netlify, actualiza también `FRONTEND_ORIGIN` en Railway y vuelve a desplegar el servicio.
+
+### Cookies opcionales de YouTube
+
+Railway puede recibir un bloqueo anti-bot de YouTube aunque el video sea público. Si ocurre, puedes configurar cookies propias de YouTube mediante la variable secreta opcional `YTDLP_COOKIES_B64`. El backend las usa solo durante la descarga y elimina el archivo temporal al terminar.
+
+1. Exporta desde tu navegador un archivo Netscape `cookies.txt` de YouTube usando una herramienta local de confianza.
+2. No subas ese archivo a GitHub ni lo envíes a nadie.
+3. En PowerShell, conviértelo a una sola línea Base64:
+
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\cookies.txt")) | Set-Clipboard
+   ```
+
+4. En Railway crea la variable secreta `YTDLP_COOKIES_B64` y pega el contenido.
+5. Redespliega el servicio.
+
+Las cookies son credenciales de sesión: usa una cuenta personal, no las registres en logs y renuévalas o cierra la sesión si sospechas que quedaron expuestas. `--cookies-from-browser` no funciona en Railway porque el servidor no tiene tu navegador.
 
 No expongas públicamente el backend sin autenticación: una URL pública permitiría que otras personas consuman tus recursos y ancho de banda.
 
@@ -98,5 +116,8 @@ docker build --pull --no-cache -t mediagrab .
 
 - `PORT`: puerto HTTP; por defecto `3000`.
 - `YTDLP_PATH`: ruta del ejecutable; por defecto `yt-dlp`.
+- `FRONTEND_ORIGIN`: dominio de Netlify permitido por CORS.
+- `MEDIA_GRAB_TOKEN`: código compartido obligatorio para las descargas.
+- `YTDLP_COOKIES_B64`: cookies de YouTube en Base64; opcional.
 
 La app permite como máximo dos descargas simultáneas y cancela cada descarga después de 15 minutos.
