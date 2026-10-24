@@ -12,18 +12,7 @@ MediaGrab es una web app personal para descargar un enlace como MP4 o MP3. Usa N
 - `yt-dlp` instalado.
 - `ffmpeg` instalado.
 
-En este equipo, las rutas usadas son:
-
-```text
-C:\Users\pedro\AppData\Roaming\Python\Python314\Scripts\yt-dlp.exe
-C:\Users\pedro\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build-shared\bin
-```
-
-Si las rutas son diferentes, sustitúyelas en los comandos siguientes.
-
-### Instalar dependencias
-
-Desde PowerShell, dentro del proyecto:
+Instala las dependencias desde PowerShell:
 
 ```powershell
 cd C:\Users\pedro\Documents\videos
@@ -32,10 +21,16 @@ npm install
 
 ### Iniciar MediaGrab
 
-El backend requiere un código de acceso local. Puedes usar cualquier valor largo y privado:
+El servidor requiere un código de acceso. Genera uno aleatorio:
 
 ```powershell
-$env:MEDIA_GRAB_TOKEN = "escribe-aqui-un-token-local"
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Después inicia MediaGrab. Estas rutas corresponden a la instalación de Windows documentada para este proyecto; sustitúyelas si son diferentes:
+
+```powershell
+$env:MEDIA_GRAB_TOKEN = "pega-aqui-tu-token"
 $env:YTDLP_PATH = "$env:APPDATA\Python\Python314\Scripts\yt-dlp.exe"
 $env:Path += ";$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build-shared\bin"
 npm start
@@ -47,24 +42,16 @@ Abre en el mismo PC:
 http://localhost:3000
 ```
 
-Al descargar, MediaGrab pedirá el mismo valor configurado en `MEDIA_GRAB_TOKEN`. El valor solo existe en esa terminal y no se sube a GitHub.
+Cuando pulses **Descargar**, introduce el mismo valor de `MEDIA_GRAB_TOKEN`.
 
-Para generar un token aleatorio:
+El frontend detecta automáticamente `localhost`, direcciones privadas de la red y HTTP local, por lo que usa el backend local. En producción, `public/config.js` apunta a Railway.
 
-```powershell
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+## Acceder desde otro dispositivo de la red
 
-### Importante sobre `config.js`
+El PC que ejecuta MediaGrab y el celular, tablet u otro PC deben estar en la misma red Wi-Fi o LAN.
 
-`public/config.js` contiene la URL de Railway para producción. El frontend detecta automáticamente cuando se abre por `localhost`, una IP privada o HTTP local, y en esos casos usa el backend local. No necesitas cambiar ese archivo para acceder desde tu red local.
-
-## Acceder desde un celular, tablet u otro PC
-
-Todos los dispositivos deben estar conectados a la misma red Wi-Fi o LAN.
-
-1. Inicia MediaGrab en el PC anfitrión con los comandos anteriores.
-2. En el PC anfitrión ejecuta:
+1. Inicia MediaGrab en el PC anfitrión.
+2. En ese PC ejecuta:
 
    ```powershell
    ipconfig
@@ -77,32 +64,32 @@ Todos los dispositivos deben estar conectados a la misma red Wi-Fi o LAN.
    http://192.168.1.25:3000
    ```
 
-5. Introduce el código de acceso local cuando lo solicite.
+5. Introduce el código de acceso local.
 
-Si Windows Firewall bloquea la conexión, abre PowerShell como administrador y permite el puerto solo en redes privadas:
+No uses `localhost` desde el celular: allí `localhost` apunta al propio celular.
+
+### Permitir el puerto en Windows Firewall
+
+Si el dispositivo no puede conectarse, abre PowerShell como administrador y ejecuta:
 
 ```powershell
 New-NetFirewallRule -DisplayName "MediaGrab 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
 ```
 
-No uses `localhost` desde el celular: `localhost` apunta al propio celular, no al PC anfitrión.
+Esta regla permite el acceso únicamente en redes marcadas como privadas. No abras el puerto en el router ni lo expongas a internet.
 
-## Ejecutar con Docker en la red local
+## Ejecutar con Docker
 
-Docker ya incluye Node.js, yt-dlp y ffmpeg:
+El `Dockerfile` incluye Node.js, yt-dlp y ffmpeg:
 
 ```powershell
 docker build -t mediagrab .
-docker run --rm -p 3000:3000 -e MEDIA_GRAB_TOKEN="escribe-aqui-un-token-local" mediagrab
+docker run --rm -p 3000:3000 -e MEDIA_GRAB_TOKEN="pega-aqui-tu-token" mediagrab
 ```
 
-Después usa la IPv4 del PC anfitrión:
+Después accede desde el mismo PC con `http://localhost:3000` o desde otro dispositivo con `http://IP-DEL-PC:3000`.
 
-```text
-http://IP-DEL-PC:3000
-```
-
-## Solución de problemas locales
+## Solución de problemas
 
 ### `EADDRINUSE: port 3000 already in use`
 
@@ -114,71 +101,31 @@ Si no encuentras esa terminal:
 Get-NetTCPConnection -LocalPort 3000
 ```
 
-Después puedes detener el proceso usando el `OwningProcess` mostrado:
+Después detén el proceso usando el `OwningProcess` mostrado:
 
 ```powershell
 Stop-Process -Id NUMERO_DEL_PROCESO
 ```
 
-### `Failed to fetch` desde otro dispositivo
+### `Failed to fetch`
 
+- Usa la IPv4 del PC anfitrión, no `localhost`.
 - Comprueba que ambos dispositivos estén en la misma red.
-- Usa `http://IP-DEL-PC:3000`, no `localhost`.
-- Comprueba la regla del firewall.
-- Confirma que el servidor sigue abierto en la terminal.
+- Comprueba Windows Firewall.
+- Confirma que `npm start` sigue ejecutándose.
 - Recarga la página después de reiniciar el servidor.
 
-### YouTube pide iniciar sesión o detecta un bot
+### YouTube detecta un bot
 
-Railway puede recibir bloqueos anti-bot por usar una IP de datacenter. Las cookies son opcionales. Si configuras `YTDLP_COOKIES_B64`, usa únicamente cookies propias, nunca las subas a GitHub y no las compartas.
+Railway puede bloquearse por usar una IP de datacenter aunque el video sea público. Las cookies de YouTube son opcionales y se configuran mediante `YTDLP_COOKIES_B64`; nunca subas cookies a GitHub ni las compartas.
 
-## Despliegue: Netlify + Railway
+Para crear esa variable desde un archivo Netscape `cookies.txt` local:
 
-La aplicación se separa en dos servicios:
-
-- **Netlify** sirve el frontend estático de `public/`.
-- **Railway** ejecuta el backend usando el `Dockerfile`, incluyendo Node.js, yt-dlp y ffmpeg.
-
-### Variables en Railway
-
-Configura estas variables en el servicio:
-
-```text
-YTDLP_PATH=/usr/local/bin/yt-dlp
-FRONTEND_ORIGIN=https://TU-SITIO.netlify.app
-MEDIA_GRAB_TOKEN=un-token-largo-y-aleatorio
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\cookies.txt")) | Set-Clipboard
 ```
 
-Railway proporciona `PORT` automáticamente. `YTDLP_COOKIES_B64` es opcional.
-
-### Frontend en Netlify
-
-`public/config.js` debe contener la URL pública de Railway:
-
-```js
-window.MEDIA_GRAB_API_URL = 'https://TU-SERVICIO.up.railway.app'
-```
-
-El sitio se publica desde la carpeta `public` sin build step.
-
-El workflow `.github/workflows/deploy.yml` dispara el Build Hook de Netlify. El secreto `NETLIFY_BUILD_HOOK` debe estar configurado en GitHub Actions. No guardes ese valor en el código.
-
-## Cookies opcionales de YouTube en Railway
-
-Si YouTube bloquea todas las descargas desde Railway:
-
-1. Exporta localmente un archivo Netscape `cookies.txt` de YouTube con una herramienta de confianza.
-2. No subas ese archivo a GitHub ni lo envíes a nadie.
-3. En PowerShell conviértelo a Base64:
-
-   ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\cookies.txt")) | Set-Clipboard
-   ```
-
-4. Crea en Railway la variable secreta `YTDLP_COOKIES_B64` y pega el contenido.
-5. Redespliega el servicio.
-
-Las cookies son credenciales de sesión. Renuévalas o cierra la sesión si sospechas que fueron expuestas.
+Las cookies son credenciales de sesión. Usa solo cookies propias y renuévalas si sospechas que fueron expuestas.
 
 ## Actualizar el proyecto
 
@@ -187,12 +134,4 @@ git pull origin main
 npm install
 ```
 
-Para desplegar cambios:
-
-```powershell
-git add .
-git commit -m "Describe el cambio"
-git push origin main
-```
-
-Railway puede desplegar el backend desde `main` y GitHub Actions dispara el despliegue de Netlify cuando haya créditos disponibles.
+Para iniciar una versión actualizada, detén el servidor anterior y ejecuta de nuevo los comandos de inicio.
