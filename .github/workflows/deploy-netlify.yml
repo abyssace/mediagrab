@@ -1,0 +1,22 @@
+name: Deploy frontend to Netlify
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "public/**"
+      - "netlify.toml"
+      - ".github/workflows/deploy-netlify.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Netlify build
+        env:
+          NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          test -n "$NETLIFY_BUILD_HOOK"
+          curl --fail --silent --show-error --request POST --data '{}' "$NETLIFY_BUILD_HOOK"
