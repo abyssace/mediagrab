@@ -1,2 +1,2 @@
 // En Netlify, reemplaza este valor por la URL pública de tu servicio Railway.
-window.MEDIA_GRAB_API_URL = 'https://mediagrab-production-3d2a.up.railway.app'
+window.MEDIA_GRAB_API_URL = 'https://mediagrabe.up.railway.app'
